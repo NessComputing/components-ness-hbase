@@ -17,7 +17,7 @@
   <groupId>com.nesscomputing.components</groupId>
   <artifactId>ness-hbase</artifactId>
   <name>ness-hbase</name>
-  <version>1.0.1-SNAPSHOT</version>
+  <version>1.0.0</version>
   <packaging>jar</packaging>
   <description>HBase event handling for Ness events.</description>
 

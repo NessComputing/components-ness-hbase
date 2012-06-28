@@ -1,4 +1,4 @@
-package com.nesscomputing.hbase.event;
+package com.nesscomputing.hbase;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;

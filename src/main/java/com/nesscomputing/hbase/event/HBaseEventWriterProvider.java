@@ -31,10 +31,20 @@ public class HBaseEventWriterProvider implements Provider<HBaseEventWriter>
     @Override
     public HBaseEventWriter get()
     {
+        HBaseEventStrategy strategy = null;
+        Configuration config = null;
+        if (bindingAnnotation != null) {
+            config = injector.getInstance(Key.get(Configuration.class, bindingAnnotation));
+            strategy = injector.getInstance(Key.get(HBaseEventStrategy.class, bindingAnnotation));
+        } else {
+            config = injector.getInstance(Configuration.class);
+            strategy = injector.getInstance(HBaseEventStrategy.class);
+        }
+
         return new HBaseEventWriter(
             injector.getInstance(HBaseEventWriterConfig.class),
-            injector.getInstance(Key.get(Configuration.class, bindingAnnotation)),
-            injector.getInstance(Key.get(HBaseEventStrategy.class, bindingAnnotation))
+            config,
+            strategy
         );
     }
 }

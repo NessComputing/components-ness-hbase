@@ -17,7 +17,7 @@ public class HBaseEventWriterModule extends AbstractModule
 
     public HBaseEventWriterModule(Class<? extends HBaseEventStrategy> strategy)
     {
-        this(Names.named("__default__"), strategy);
+        this(null, strategy);
     }
 
     public HBaseEventWriterModule(
@@ -34,7 +34,13 @@ public class HBaseEventWriterModule extends AbstractModule
     {
         // I don't think this will throw an exception if it this module is installed twice, but it might. :)
         bind(HBaseEventWriterConfig.class).toProvider(ConfigProvider.of(HBaseEventWriterConfig.class)).in(Scopes.SINGLETON);
-        bind(HBaseEventStrategy.class).annotatedWith(bindingAnnotation).to(strategy);
-        bind(HBaseEventWriter.class).annotatedWith(bindingAnnotation).toProvider(new HBaseEventWriterProvider(bindingAnnotation));
+
+        if (bindingAnnotation != null) {
+            bind(HBaseEventStrategy.class).annotatedWith(bindingAnnotation).to(strategy);
+            bind(HBaseEventWriter.class).annotatedWith(bindingAnnotation).toProvider(new HBaseEventWriterProvider(bindingAnnotation));
+        } else {
+            bind(HBaseEventStrategy.class).to(strategy);
+            bind(HBaseEventWriter.class).toProvider(new HBaseEventWriterProvider(bindingAnnotation));
+        }
     }
 }

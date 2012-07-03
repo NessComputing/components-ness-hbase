@@ -48,6 +48,7 @@ public class DefaultHBaseEventStrategy implements HBaseEventStrategy
     @Override
     public Put encodeEvent(NessEvent event)
     {
+        LOG.trace("Encoding event: %s", event);
         final Put put = new Put(HBaseEncoder.rowKeyForEvent(event));
         // Try to keep the v1 format as much alive as possible
         addKey(put, "entryTimestamp", HBaseEncoder.bytesForObject(event.getTimestamp()));

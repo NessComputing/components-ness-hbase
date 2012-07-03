@@ -4,7 +4,6 @@ import java.lang.annotation.Annotation;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.Scopes;
-import com.google.inject.name.Names;
 import com.nesscomputing.config.ConfigProvider;
 
 /**

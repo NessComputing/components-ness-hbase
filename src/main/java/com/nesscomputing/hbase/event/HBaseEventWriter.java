@@ -92,6 +92,8 @@ public class HBaseEventWriter implements NessEventReceiver, Runnable
         Preconditions.checkState(writerThread == null, "already started, boldly refusing to start twice!");
         Preconditions.checkState(table.get() == null, "Already have a htable object, something went very wrong!");
 
+        LOG.info("Starting HBase Event Writer");
+
         final HTable hTable = new HTable(hadoopConfig, eventStrategy.getTableName());
         hTable.setAutoFlush(true); // We do our own caching so no need to do it twice.
         table.set(hTable);
@@ -104,7 +106,7 @@ public class HBaseEventWriter implements NessEventReceiver, Runnable
     synchronized void stop() throws InterruptedException
     {
         if (writerThread != null) {
-
+            LOG.info("Stopping HBase Event Writer");
             try {
                 taskRunning = false;
                 writerThread.interrupt();
@@ -138,6 +140,8 @@ public class HBaseEventWriter implements NessEventReceiver, Runnable
         if (event == null) {
             return;
         }
+
+        LOG.trace("Receiving Event: %s", event);
 
         final long cooloffTime = this.cooloffTime.get();
 

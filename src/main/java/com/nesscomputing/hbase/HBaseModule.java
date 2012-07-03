@@ -36,7 +36,7 @@ public class HBaseModule extends AbstractModule {
         bind(Configuration.class).toProvider(HadoopConfigurationProvider.class);
     }
 
-    private class HadoopConfigurationProvider implements Provider<Configuration> {
+    private static class HadoopConfigurationProvider implements Provider<Configuration> {
 
         private Config trumpetConfig;
 

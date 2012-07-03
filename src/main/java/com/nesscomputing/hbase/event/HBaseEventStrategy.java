@@ -8,7 +8,6 @@ import com.nesscomputing.event.NessEvent;
 /**
  * This is a interface representing the operations that the writer performs.
  */
-@Singleton
 public interface HBaseEventStrategy
 {
     /** @return The table name to write events to. */

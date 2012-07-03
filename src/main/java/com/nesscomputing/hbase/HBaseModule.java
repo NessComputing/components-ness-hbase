@@ -19,7 +19,8 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 
 import com.google.inject.AbstractModule;
-import com.google.inject.Provides;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import com.nesscomputing.config.Config;
 
 /**
@@ -27,15 +28,31 @@ import com.nesscomputing.config.Config;
  * @author steven
  */
 public class HBaseModule extends AbstractModule {
+
+
+
     @Override
     protected void configure() {
+        bind(Configuration.class).toProvider(HadoopConfigurationProvider.class);
     }
 
-    @Provides
-    public Configuration provideHadoopConfiguration(Config trumpetConfig) {
-        Configuration config = HBaseConfiguration.create();
-        config.set("hbase.zookeeper.quorum", trumpetConfig.getConfiguration().getString("hbase.zookeeper", "localhost"));
-        config.set("zookeeper.znode.parent", trumpetConfig.getConfiguration().getString("hbase.zookeeper.path", "/hbase"));
-        return config;
+    private class HadoopConfigurationProvider implements Provider<Configuration> {
+
+        private Config trumpetConfig;
+
+        @Inject
+        private HadoopConfigurationProvider(Config trumpetConfig)
+        {
+            this.trumpetConfig = trumpetConfig;
+        }
+
+        @Override
+        public Configuration get()
+        {
+            Configuration config = HBaseConfiguration.create();
+            config.set("hbase.zookeeper.quorum", trumpetConfig.getConfiguration().getString("hbase.zookeeper", "localhost"));
+            config.set("zookeeper.znode.parent", trumpetConfig.getConfiguration().getString("hbase.zookeeper.path", "/hbase"));
+            return config;
+        }
     }
 }

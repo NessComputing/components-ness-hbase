@@ -17,7 +17,6 @@ package com.nesscomputing.hbase.event;
 
 import java.util.Collections;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.Put;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.After;
@@ -30,30 +29,29 @@ import com.google.common.collect.ImmutableMap;
 import com.nesscomputing.event.NessEvent;
 import com.nesscomputing.event.NessEventType;
 
-public class TestHBaseEventWriter
+public class TestDefaultHBaseEventStrategy
 {
-    private HBaseEventWriter eventWriter = null;
+    private HBaseEventStrategy eventStrategy;
 
     @Before
     public void setUp() throws Exception
     {
-        Assert.assertNull(eventWriter);
-        eventWriter = new HBaseEventWriter(new HBaseEventWriterConfig() {},
-                                           new Configuration(), new ObjectMapper());
+        Assert.assertNull(eventStrategy);
+        eventStrategy = new DefaultHBaseEventStrategy(new ObjectMapper());
     }
 
     @After
     public void tearDown()
     {
-        Assert.assertNotNull(eventWriter);
-        eventWriter = null;
+        Assert.assertNotNull(eventStrategy);
+        eventStrategy = null;
     }
 
     @Test
     public void testAcceptNullUser()
     {
         final NessEvent event = NessEvent.createEvent(null, NessEventType.getForName(null));
-        final Put put = eventWriter.encodeNessEvent(event);
+        final Put put = eventStrategy.encodeEvent(event);
 
         Assert.assertNotNull(put);
     }
@@ -69,7 +67,7 @@ public class TestHBaseEventWriter
                                                                                                       .put("a-map", ImmutableMap.of("foo", "bar"))
                                                                                                       .put("a-list", ImmutableList.of(1, 2, 3, 4, "hello", "world"))
                                                                                                       .build());
-        final Put put = eventWriter.encodeNessEvent(event);
+        final Put put = eventStrategy.encodeEvent(event);
 
         Assert.assertNotNull(put);
     }
@@ -78,7 +76,7 @@ public class TestHBaseEventWriter
     public void testNullPayload()
     {
         final NessEvent event = NessEvent.createEvent(null, NessEventType.getForName(null), Collections.singletonMap("a-null-value", null));
-        final Put put = eventWriter.encodeNessEvent(event);
+        final Put put = eventStrategy.encodeEvent(event);
 
         Assert.assertNotNull(put);
     }

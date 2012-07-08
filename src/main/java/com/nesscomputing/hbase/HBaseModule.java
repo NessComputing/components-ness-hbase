@@ -19,40 +19,29 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 
 import com.google.inject.AbstractModule;
-import com.google.inject.Inject;
-import com.google.inject.Provider;
-import com.nesscomputing.config.Config;
+import com.google.inject.Provides;
+import com.google.inject.Scopes;
+import com.google.inject.Singleton;
+import com.nesscomputing.config.ConfigProvider;
 
 /**
  * Provides handy bindings for interacting with HBase.
- * @author steven
  */
-public class HBaseModule extends AbstractModule {
-
-
-
+public class HBaseModule extends AbstractModule
+{
     @Override
-    protected void configure() {
-        bind(Configuration.class).toProvider(HadoopConfigurationProvider.class);
+    protected void configure()
+    {
+        bind(HBaseConfig.class).toProvider(ConfigProvider.of(HBaseConfig.class)).in(Scopes.SINGLETON);
     }
 
-    private static class HadoopConfigurationProvider implements Provider<Configuration> {
-
-        private Config trumpetConfig;
-
-        @Inject
-        private HadoopConfigurationProvider(Config trumpetConfig)
-        {
-            this.trumpetConfig = trumpetConfig;
-        }
-
-        @Override
-        public Configuration get()
-        {
-            Configuration config = HBaseConfiguration.create();
-            config.set("hbase.zookeeper.quorum", trumpetConfig.getConfiguration().getString("hbase.zookeeper", "localhost"));
-            config.set("zookeeper.znode.parent", trumpetConfig.getConfiguration().getString("hbase.zookeeper.path", "/hbase"));
-            return config;
-        }
+    @Provides
+    @Singleton
+    public Configuration getHadoopConfiguration(final HBaseConfig hbaseConfig)
+    {
+        final Configuration config = HBaseConfiguration.create();
+        config.set("hbase.zookeeper.quorum", hbaseConfig.getHBaseZookeeperQuorum());
+        config.set("zookeeper.znode.parent", hbaseConfig.getHBaseZookeeperPath());
+        return config;
     }
 }

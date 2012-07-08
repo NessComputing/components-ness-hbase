@@ -28,6 +28,8 @@ import com.google.inject.Inject;
 import com.nesscomputing.event.NessEvent;
 import com.nesscomputing.logging.Log;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * The "default" implementation of the event strategy. This encompasses the original functionality of the event writer.
  * @see HBaseEventStrategy
@@ -93,6 +95,7 @@ public class DefaultHBaseEventStrategy implements HBaseEventStrategy
     }
 
     @Override
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public byte[] getEventColumnFamily()
     {
         return EVENT_COLUMN_FAMILY;

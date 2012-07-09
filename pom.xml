@@ -17,21 +17,15 @@
   <groupId>com.nesscomputing.components</groupId>
   <artifactId>ness-hbase</artifactId>
   <name>ness-hbase</name>
-  <version>1.1.0-SNAPSHOT</version>
+  <version>2.0.0-SNAPSHOT</version>
   <packaging>jar</packaging>
-  <description>HBase event handling for Ness events.</description>
+  <description>Ness HBase glue code.</description>
 
   <properties>
     <dep.jackson.version>1.9.7</dep.jackson.version>
   </properties>
 
   <dependencies>
-    <dependency>
-      <groupId>com.nesscomputing.components</groupId>
-      <artifactId>ness-event-core</artifactId>
-      <version>1.0.0</version>
-    </dependency>
-
     <dependency>
       <groupId>com.nesscomputing.components</groupId>
       <artifactId>ness-logging</artifactId>
@@ -51,17 +45,6 @@
     </dependency>
 
     <dependency>
-      <groupId>org.codehaus.jackson</groupId>
-      <artifactId>jackson-mapper-asl</artifactId>
-      <version>${dep.jackson.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>joda-time</groupId>
-      <artifactId>joda-time</artifactId>
-    </dependency>
-
-    <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
     </dependency>
@@ -76,6 +59,15 @@
       <artifactId>config-magic</artifactId>
     </dependency>
 
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.code.findbugs</groupId>
+      <artifactId>jsr305</artifactId>
+    </dependency>
 
     <!-- Hadoop/Hbase -->
     <dependency>
@@ -129,7 +121,7 @@
     <dependency>
       <groupId>org.apache.hbase</groupId>
       <artifactId>hbase</artifactId>
-      <version>0.94.0</version>
+      <version>0.92.1</version>
       <exclusions>
         <exclusion>
           <groupId>tomcat</groupId>
@@ -199,17 +191,13 @@
           <groupId>org.slf4j</groupId>
           <artifactId>slf4j-log4j12</artifactId>
         </exclusion>
-        <exclusion>
-          <groupId>org.apache.zookeeper</groupId>
-          <artifactId>zookeeper</artifactId>
-        </exclusion>
       </exclusions>
     </dependency>
 
     <dependency>
-      <groupId>com.nesscomputing.testing</groupId>
-      <artifactId>findbugs-annotations</artifactId>
-      <version>2.0.0</version>
+      <groupId>org.apache.zookeeper</groupId>
+      <artifactId>zookeeper</artifactId>
+      <version>3.4.3</version>
     </dependency>
 
     <dependency>
@@ -223,16 +211,9 @@
   <dependencyManagement>
     <dependencies>
       <dependency>
-        <groupId>org.apache.zookeeper</groupId>
-        <artifactId>zookeeper</artifactId>
-        <version>3.3.5</version>
-        <exclusions>
-          <exclusion>
-            <artifactId>junit</artifactId>
-            <groupId>junit</groupId>
-          </exclusion>
-        </exclusions>
-        <scope>runtime</scope>
+        <groupId>org.codehaus.jackson</groupId>
+        <artifactId>jackson-mapper-asl</artifactId>
+        <version>${dep.jackson.version}</version>
       </dependency>
       <dependency>
         <groupId>org.jboss.netty</groupId>

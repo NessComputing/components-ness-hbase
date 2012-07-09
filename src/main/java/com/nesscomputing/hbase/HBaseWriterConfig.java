@@ -13,22 +13,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.nesscomputing.hbase.event;
+package com.nesscomputing.hbase;
 
 import org.skife.config.Config;
 import org.skife.config.Default;
 import org.skife.config.DefaultNull;
 import org.skife.config.TimeSpan;
 
-public class HBaseEventWriterConfig
+/**
+ * Configure an HBase writer for a given object type to an HBase table.
+ */
+public abstract class HBaseWriterConfig
 {
+    /**
+     * Enable / disable the writer.
+     */
+    @Config({"ness.hbase.writer.${writername}.enabled","ness.hbase.writer.enabled"})
+    @Default("false")
+    public boolean isEnabled()
+    {
+        return false;
+    }
+
     /**
      * Length of the internal queue to buffer bursts from JMS into HBase. A longer queue increases
      * the risk of losing events if the service crashes before they could be stuffed into Hadoop.
      * A shorter queue with higher timeout (see below) will slow the event acceptor and events will pile
      * up in ActiveMQ.
      */
-    @Config("ness.event.hbase.queue-length")
+    @Config({"ness.hbase.writer.${writername}.queue-length","ness.hbase.writer.queue-length"})
     @Default("1000")
     public int getQueueLength()
     {
@@ -40,7 +53,7 @@ public class HBaseEventWriterConfig
      * stuff an event into HBase. Default is to wait until
      * there is space in the queue.
      */
-    @Config("ness.event.hbase.enqueue-timeout")
+    @Config({"ness.hbase.writer.${writername}.enqueue-timeout","ness.hbase.writer.enqueue-timeout"})
     @DefaultNull
     public TimeSpan getEnqueueTimeout()
     {
@@ -50,10 +63,16 @@ public class HBaseEventWriterConfig
     /**
      * Cooloff time after failing to enqueue an event.
      */
-    @Config("ness.event.hbase.failure-cooloff-time")
+    @Config({"ness.hbase.writer.${writername}.failure-cooloff-time","ness.hbase.writer.failure-cooloff-time"})
     @Default("1s")
     public TimeSpan getFailureCooloffTime()
     {
         return new TimeSpan("1s");
     }
+
+    /**
+     * Name of the HBase table to write into.
+     */
+    @Config({"ness.hbase.writer.${writername}.tablename","ness.hbase.writer.tablename"})
+    public abstract String getTableName();
 }

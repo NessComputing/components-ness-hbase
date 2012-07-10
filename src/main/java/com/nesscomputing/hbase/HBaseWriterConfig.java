@@ -49,6 +49,16 @@ public abstract class HBaseWriterConfig
     }
 
     /**
+     * Time that the writer thread sleeps (and accumulates new events).
+     */
+    @Config({"ness.hbase.writer.${writername}.ticker-time","ness.hbase.writer.ticker-time"})
+    @Default("100ms")
+    public TimeSpan getTickerTime()
+    {
+        return new TimeSpan("100ms");
+    }
+
+    /**
      * Maximum amount of time that the listener tries to
      * stuff an event into HBase. Default is to wait until
      * there is space in the queue.

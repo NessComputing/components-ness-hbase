@@ -23,9 +23,9 @@ import org.apache.hadoop.hbase.client.Put;
 import com.google.common.base.Preconditions;
 
 /**
- * Convenience class for anything that wants to implements {@link HBaseStrategy<T>} but only cares about either encoding or decoding.
+ * Convenience class for anything that wants to implements {@link HBaseStrategy} but only cares about either encoding or decoding.
  *
- * the {@link HBaseStrategy<T>#key(T)} method must always be implemented.
+ * the {@link HBaseStrategy#key(Object)} method must always be implemented.
  */
 public abstract class AbstractHBaseStrategy<T> implements HBaseStrategy<T>
 {

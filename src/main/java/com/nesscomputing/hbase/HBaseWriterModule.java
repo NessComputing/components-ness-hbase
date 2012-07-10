@@ -17,6 +17,7 @@ package com.nesscomputing.hbase;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
+import org.weakref.jmx.guice.MBeanModule;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -33,6 +34,7 @@ import com.nesscomputing.lifecycle.LifecycleStage;
 import com.nesscomputing.lifecycle.guice.AbstractLifecycleProvider;
 import com.nesscomputing.lifecycle.guice.LifecycleAction;
 
+import static java.lang.String.format;
 /**
  * Defines a new HBase writer. Each writer can have its own configuration.
  */
@@ -53,6 +55,13 @@ public class HBaseWriterModule extends AbstractModule
         final Named named = Names.named(writerName);
         bind(HBaseWriterConfig.class).annotatedWith(named).toProvider(ConfigProvider.of(HBaseWriterConfig.class, ImmutableMap.of("writername", writerName))).in(Scopes.SINGLETON);
         bind(HBaseWriter.class).annotatedWith(named).toProvider(new HBaseWriterProvider(named)).asEagerSingleton();
+
+        install(new MBeanModule() {
+            @Override
+            public void configureMBeans() {
+                export(HBaseWriter.class).annotatedWith(named).as(format("ness.hbase.writer:name=%s", writerName));
+            }
+        });
     }
 
     public static class HBaseWriterProvider extends AbstractLifecycleProvider<HBaseWriter> implements Provider<HBaseWriter>

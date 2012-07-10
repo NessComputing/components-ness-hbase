@@ -19,8 +19,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -30,6 +30,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Put;
 import org.skife.config.TimeSpan;
+import org.weakref.jmx.Managed;
 
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -75,6 +76,14 @@ public class HBaseWriter implements Runnable
     private final Configuration hadoopConfig;
 
     private final TimeSpan enqueueTimeout;
+
+    private final AtomicLong opsEnqueued = new AtomicLong(0L);
+    private final AtomicLong opsEnqTimeout = new AtomicLong(0L);
+    private final AtomicLong opsEnqCooloff = new AtomicLong(0L);
+    private final AtomicLong opsDequeued = new AtomicLong(0L);
+    private final AtomicLong opsSent = new AtomicLong(0L);
+    private final AtomicLong opsLost = new AtomicLong(0L);
+    private final AtomicInteger longestBurst = new AtomicInteger(0);
 
     HBaseWriter(final HBaseWriterConfig hbaseWriterConfig,
                 final Configuration hadoopConfig)
@@ -156,6 +165,7 @@ public class HBaseWriter implements Runnable
         final long cooloffTime = this.cooloffTime.get();
 
         if (cooloffTime > 0 && System.nanoTime() < cooloffTime) {
+            opsEnqCooloff.incrementAndGet();
             LOG.trace("Cooling off from enqueue failure");
             return false;
         }
@@ -163,21 +173,24 @@ public class HBaseWriter implements Runnable
         try {
             if (enqueueTimeout == null) {
                 writeQueue.put(callable);
+                opsEnqueued.incrementAndGet();
                 this.cooloffTime.set(-1L);
                 return true;
             }
             else {
                 if (writeQueue.offer(callable, enqueueTimeout.getPeriod(), enqueueTimeout.getUnit())) {
+                    opsEnqueued.incrementAndGet();
                     this.cooloffTime.set(-1L);
                     return true;
                 }
+                opsEnqTimeout.incrementAndGet();
             }
         }
         catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
         }
 
-        LOG.warn("Could not offer put op to queue, sleeping for %d sec!", hbaseWriterConfig.getFailureCooloffTime());
+        LOG.warn("Could not offer put op to queue, sleeping for %s!", hbaseWriterConfig.getFailureCooloffTime());
         this.cooloffTime.compareAndSet(-1L, System.nanoTime() + hbaseWriterConfig.getFailureCooloffTime().getMillis() * 1000000L);
 
         return false;
@@ -191,12 +204,14 @@ public class HBaseWriter implements Runnable
             final HTable htable = table.get();
             if (htable != null) {
                 htable.put(Lists.transform(putOps, CALLABLE_FUNCTION));
+                opsSent.addAndGet(putOps.size());
                 LOG.trace("Wrote %d put ops to HBase table %s.", putOps.size(), hbaseWriterConfig.getTableName());
             } else {
                 LOG.warn("HTable is null, probably shutting down!");
             }
         }
         catch (IOException e) {
+            opsLost.addAndGet(putOps.size());
             LOG.error(e, "Unable to send put ops to HBase!");
         }
     }
@@ -218,24 +233,83 @@ public class HBaseWriter implements Runnable
     @Override
     public void run()
     {
-        LOG.info("HBaseWriter for %s starting...", hbaseWriterConfig.getTableName());
+        final TimeSpan tickerTime  = hbaseWriterConfig.getTickerTime();
+
+        LOG.info("HBaseWriter for %s starting (ticker: %s)...", hbaseWriterConfig.getTableName(), tickerTime);
+
         try {
             while (taskRunning.get()) {
                 // TODO: this does not batch as I'd like.  The code to do it correctly
                 // is somewhat tricky and ugly, but this is where performance problems
                 // will arise.  Maybe.
-                final Callable<Put> put = writeQueue.poll(100, TimeUnit.MILLISECONDS);
+                final Callable<Put> put = writeQueue.poll();
                 if (put != null) {
                     final List<Callable<Put>> puts = Lists.newArrayList();
                     puts.add(put);
                     writeQueue.drainTo(puts);
+
+                    final int size = puts.size();
+                    opsDequeued.addAndGet(size);
+                    if (size > longestBurst.get()) {
+                        longestBurst.set(size);
+                    }
+
                     flushToHBase(puts);
                 }
+                Thread.sleep(tickerTime.getMillis());
             }
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
         LOG.info("Exiting");
+    }
+
+    @Managed
+    public long getOpsEnqueued()
+    {
+        return opsEnqueued.get();
+    }
+
+    @Managed
+    public long getOpsEnqTimeout()
+    {
+        return opsEnqTimeout.get();
+    }
+
+    @Managed
+    public long getOpsEnqCooloff()
+    {
+        return opsEnqCooloff.get();
+    }
+
+    @Managed
+    public long getOpsDequeued()
+    {
+        return opsDequeued.get();
+    }
+
+    @Managed
+    public long getOpsSent()
+    {
+        return opsSent.get();
+    }
+
+    @Managed
+    public long getOpsLost()
+    {
+        return opsLost.get();
+    }
+
+    @Managed
+    public int getQueueLength()
+    {
+        return writeQueue.size();
+    }
+
+    @Managed
+    public int getLongestBurst()
+    {
+        return longestBurst.get();
     }
 }

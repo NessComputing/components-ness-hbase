@@ -15,6 +15,8 @@
  */
 package com.nesscomputing.hbase;
 
+import static java.lang.String.format;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.weakref.jmx.guice.MBeanModule;
@@ -33,8 +35,6 @@ import com.nesscomputing.config.ConfigProvider;
 import com.nesscomputing.lifecycle.LifecycleStage;
 import com.nesscomputing.lifecycle.guice.AbstractLifecycleProvider;
 import com.nesscomputing.lifecycle.guice.LifecycleAction;
-
-import static java.lang.String.format;
 /**
  * Defines a new HBase writer. Each writer can have its own configuration.
  */
@@ -44,7 +44,7 @@ public class HBaseWriterModule extends AbstractModule
 
     public HBaseWriterModule(final String writerName)
     {
-        Preconditions.checkState(!StringUtils.isBlank(writerName), "Writer name %s is illegal!", writerName);
+        Preconditions.checkState(!StringUtils.isBlank(writerName), "Writer name must not be blank!");
 
         this.writerName = writerName;
     }

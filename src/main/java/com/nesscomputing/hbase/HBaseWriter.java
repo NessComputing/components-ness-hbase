@@ -17,18 +17,23 @@ package com.nesscomputing.hbase;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import javax.annotation.Nullable;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Put;
 import org.skife.config.TimeSpan;
 
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
 import com.nesscomputing.logging.Log;
 
@@ -42,8 +47,20 @@ public class HBaseWriter implements Runnable
 {
     private static final Log LOG = Log.findLog();
 
+    private static final Function<Callable<Put>, Put> CALLABLE_FUNCTION = new Function<Callable<Put>, Put>() {
+        @Override
+        public Put apply(@Nullable final Callable<Put> callable) {
+            try {
+                return callable == null ? null : callable.call();
+            }
+            catch (Exception e) {
+                throw Throwables.propagate(e);
+            }
+        }
+    };
+
     /** Queue of pending writes.  */
-    private final LinkedBlockingQueue<Put> writeQueue;
+    private final LinkedBlockingQueue<Callable<Put>> writeQueue;
 
     private AtomicBoolean taskRunning = new AtomicBoolean(true);
 
@@ -65,7 +82,7 @@ public class HBaseWriter implements Runnable
         this.hbaseWriterConfig = hbaseWriterConfig;
         this.hadoopConfig = hadoopConfig;
 
-        this.writeQueue = new LinkedBlockingQueue<Put>(hbaseWriterConfig.getQueueLength());
+        this.writeQueue = new LinkedBlockingQueue<Callable<Put>>(hbaseWriterConfig.getQueueLength());
         this.enqueueTimeout = hbaseWriterConfig.getEnqueueTimeout();
     }
 
@@ -114,57 +131,66 @@ public class HBaseWriter implements Runnable
         }
     }
 
-    public void write(final Put putOp)
+    public boolean write(final Put putOp)
+    {
+        return write(new Callable<Put>() {
+            @Override
+            public Put call() {
+                return putOp;
+            }
+        });
+    }
+
+    public boolean write(final Callable<Put> callable)
     {
         if (!hbaseWriterConfig.isEnabled()) {
-            return ;
+            return false;
         }
 
         Preconditions.checkState(taskRunning.get(), "Attempt to enqueue while the writer is shut down!");
 
-        if (putOp == null) {
-            return;
+        if (callable == null) {
+            return false;
         }
-
-        LOG.trace("Receiving put op: '%s'", putOp);
 
         final long cooloffTime = this.cooloffTime.get();
 
         if (cooloffTime > 0 && System.nanoTime() < cooloffTime) {
             LOG.trace("Cooling off from enqueue failure");
-            return;
+            return false;
         }
-
-        LOG.trace("Enqueue put op '%s'", putOp);
 
         try {
             if (enqueueTimeout == null) {
-                writeQueue.put(putOp);
+                writeQueue.put(callable);
                 this.cooloffTime.set(-1L);
-                return;
+                return true;
             }
-
-            if (writeQueue.offer(putOp, enqueueTimeout.getPeriod(), enqueueTimeout.getUnit())) {
-                this.cooloffTime.set(-1L);
-                return;
+            else {
+                if (writeQueue.offer(callable, enqueueTimeout.getPeriod(), enqueueTimeout.getUnit())) {
+                    this.cooloffTime.set(-1L);
+                    return true;
+                }
             }
         }
         catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
         }
 
-        LOG.warn("Could not offer put op '%s' to queue", putOp);
+        LOG.warn("Could not offer put op to queue, sleeping for %d sec!", hbaseWriterConfig.getFailureCooloffTime());
         this.cooloffTime.compareAndSet(-1L, System.nanoTime() + hbaseWriterConfig.getFailureCooloffTime().getMillis() * 1000000L);
+
+        return false;
     }
 
-    private void flushToHBase(final List<Put> putOps)
+    private void flushToHBase(final List<Callable<Put>> putOps)
     {
         LOG.trace("Starting write of %d put ops...", putOps.size());
 
         try {
             final HTable htable = table.get();
             if (htable != null) {
-                htable.put(putOps);
+                htable.put(Lists.transform(putOps, CALLABLE_FUNCTION));
                 LOG.trace("Wrote %d put ops to HBase table %s.", putOps.size(), hbaseWriterConfig.getTableName());
             } else {
                 LOG.warn("HTable is null, probably shutting down!");
@@ -198,9 +224,9 @@ public class HBaseWriter implements Runnable
                 // TODO: this does not batch as I'd like.  The code to do it correctly
                 // is somewhat tricky and ugly, but this is where performance problems
                 // will arise.  Maybe.
-                final Put put = writeQueue.poll(100, TimeUnit.MILLISECONDS);
+                final Callable<Put> put = writeQueue.poll(100, TimeUnit.MILLISECONDS);
                 if (put != null) {
-                    final List<Put> puts = Lists.newArrayList();
+                    final List<Callable<Put>> puts = Lists.newArrayList();
                     puts.add(put);
                     writeQueue.drainTo(puts);
                     flushToHBase(puts);

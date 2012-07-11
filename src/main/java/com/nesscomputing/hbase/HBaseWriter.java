@@ -32,12 +32,12 @@ import org.apache.hadoop.hbase.client.Put;
 import org.skife.config.TimeSpan;
 import org.weakref.jmx.Managed;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
 import com.nesscomputing.logging.Log;
-
 
 /**
  * Batch writer to HBase.  Enqueues either as its buffer fills or periodically, to bound the amount of lost information.
@@ -85,6 +85,8 @@ public class HBaseWriter implements Runnable
     private final AtomicLong opsLost = new AtomicLong(0L);
     private final AtomicInteger longestBurst = new AtomicInteger(0);
 
+    private final String tableName;
+
     HBaseWriter(final HBaseWriterConfig hbaseWriterConfig,
                 final Configuration hadoopConfig)
     {
@@ -93,6 +95,7 @@ public class HBaseWriter implements Runnable
 
         this.writeQueue = new LinkedBlockingQueue<Callable<Put>>(hbaseWriterConfig.getQueueLength());
         this.enqueueTimeout = hbaseWriterConfig.getEnqueueTimeout();
+        this.tableName = hbaseWriterConfig.getTableName();
     }
 
     synchronized void start()
@@ -102,19 +105,19 @@ public class HBaseWriter implements Runnable
             Preconditions.checkState(writerThread.get() == null, "already started, boldly refusing to start twice!");
             Preconditions.checkState(table.get() == null, "Already have a htable object, something went very wrong!");
 
-            LOG.info("Starting HBase Writer for HBase table %s.", hbaseWriterConfig.getTableName());
+            LOG.info("Starting HBase Writer for HBase table %s.", tableName);
 
-            final HTable hTable = new HTable(hadoopConfig, hbaseWriterConfig.getTableName());
+            final HTable hTable = new HTable(hadoopConfig, tableName);
 
             hTable.setAutoFlush(true); // We do our own caching so no need to do it twice.
             table.set(hTable);
 
-            final Thread thread = new Thread(this, String.format("hbase-%s-writer", hbaseWriterConfig.getTableName()));
+            final Thread thread = new Thread(this, String.format("hbase-%s-writer", tableName));
             writerThread.set(thread);
             thread.start();
             }
             catch (IOException ioe) {
-                LOG.warnDebug(ioe, "Could not start HBase writer for %s", hbaseWriterConfig.getTableName());
+                LOG.warnDebug(ioe, "Could not start HBase writer for %s", tableName);
             }
         }
     }
@@ -123,7 +126,7 @@ public class HBaseWriter implements Runnable
     {
         final Thread thread = writerThread.getAndSet(null);
         if (thread != null) {
-            LOG.info("Stopping HBase Writer for table %s.", hbaseWriterConfig.getTableName());
+            LOG.info("Stopping HBase Writer for table %s.", tableName);
             try {
                 taskRunning.set(false);
                 thread.interrupt();
@@ -164,10 +167,15 @@ public class HBaseWriter implements Runnable
 
         final long cooloffTime = this.cooloffTime.get();
 
-        if (cooloffTime > 0 && System.nanoTime() < cooloffTime) {
-            opsEnqCooloff.incrementAndGet();
-            LOG.trace("Cooling off from enqueue failure");
-            return false;
+        if (cooloffTime > 0) {
+            if (System.nanoTime() < cooloffTime) {
+                opsEnqCooloff.incrementAndGet();
+                LOG.trace("Cooling off from enqueue failure");
+                return false;
+            }
+            else {
+                this.cooloffTime.set(-1L);
+            }
         }
 
         try {
@@ -196,7 +204,7 @@ public class HBaseWriter implements Runnable
         return false;
     }
 
-    private void flushToHBase(final List<Callable<Put>> putOps)
+    protected void flushToHBase(final List<Callable<Put>> putOps)
     {
         LOG.trace("Starting write of %d put ops...", putOps.size());
 
@@ -205,7 +213,7 @@ public class HBaseWriter implements Runnable
             if (htable != null) {
                 htable.put(Lists.transform(putOps, CALLABLE_FUNCTION));
                 opsSent.addAndGet(putOps.size());
-                LOG.trace("Wrote %d put ops to HBase table %s.", putOps.size(), hbaseWriterConfig.getTableName());
+                LOG.trace("Wrote %d put ops to HBase table %s.", putOps.size(), tableName);
             } else {
                 LOG.warn("HTable is null, probably shutting down!");
             }
@@ -233,29 +241,12 @@ public class HBaseWriter implements Runnable
     @Override
     public void run()
     {
-        final TimeSpan tickerTime  = hbaseWriterConfig.getTickerTime();
-
-        LOG.info("HBaseWriter for %s starting (ticker: %s)...", hbaseWriterConfig.getTableName(), tickerTime);
+        final TimeSpan tickerTime = hbaseWriterConfig.getTickerTime();
+        LOG.info("HBaseWriter for %s starting (ticker: %s)...", tableName, tickerTime);
 
         try {
             while (taskRunning.get()) {
-                // TODO: this does not batch as I'd like.  The code to do it correctly
-                // is somewhat tricky and ugly, but this is where performance problems
-                // will arise.  Maybe.
-                final Callable<Put> put = writeQueue.poll();
-                if (put != null) {
-                    final List<Callable<Put>> puts = Lists.newArrayList();
-                    puts.add(put);
-                    writeQueue.drainTo(puts);
-
-                    final int size = puts.size();
-                    opsDequeued.addAndGet(size);
-                    if (size > longestBurst.get()) {
-                        longestBurst.set(size);
-                    }
-
-                    flushToHBase(puts);
-                }
+                runLoop();
                 Thread.sleep(tickerTime.getMillis());
             }
         }
@@ -263,6 +254,25 @@ public class HBaseWriter implements Runnable
             Thread.currentThread().interrupt();
         }
         LOG.info("Exiting");
+    }
+
+    @VisibleForTesting
+    void runLoop()
+    {
+        final Callable<Put> put = writeQueue.poll();
+        if (put != null) {
+            final List<Callable<Put>> puts = Lists.newArrayList();
+            puts.add(put);
+            writeQueue.drainTo(puts);
+
+            final int size = puts.size();
+            opsDequeued.addAndGet(size);
+            if (size > longestBurst.get()) {
+                longestBurst.set(size);
+            }
+
+            flushToHBase(puts);
+        }
     }
 
     @Managed

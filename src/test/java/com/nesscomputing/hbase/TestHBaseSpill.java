@@ -1,11 +1,13 @@
 package com.nesscomputing.hbase;
 
 import java.io.File;
+import java.io.IOException;
 
 import com.google.common.io.Files;
 
 import org.apache.commons.io.Charsets;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Put;
 import org.easymock.EasyMock;
 import org.junit.After;
@@ -94,6 +96,38 @@ public class TestHBaseSpill
         Assert.assertEquals(queueLength + 1, dummyWriter.getOpsEnqSpilled());
 
     }
+
+    @Test
+    public void testSpillOnDequeue() throws Exception
+    {
+        final HBaseWriter dummyWriter = new HBaseWriter("test", hbaseWriterConfig, conf) {
+            @Override
+            protected HTable connectHTable() throws IOException
+            {
+                throw new IOException("oops");
+            }
+
+        };
+
+        final Put data = new Put("row".getBytes(Charsets.UTF_8));
+        data.add("family".getBytes(Charsets.UTF_8), "qualifier".getBytes(Charsets.UTF_8), "Hello, World".getBytes(Charsets.UTF_8));
+
+
+        for (int i = 0 ; i < queueLength; i++) {
+            dummyWriter.write(data);
+            Assert.assertEquals(0L, dummyWriter.getSpillsOk());
+            Assert.assertEquals(0L, dummyWriter.getSpillsFailed());
+            Assert.assertEquals(i + 1, dummyWriter.getQueueLength());
+        }
+
+        Assert.assertEquals(0, dummyWriter.getOpsDeqSpilled());
+
+        dummyWriter.runLoop();
+
+        Assert.assertEquals(queueLength, dummyWriter.getOpsDeqSpilled());
+        Assert.assertEquals(1L, dummyWriter.getSpillsOk());
+    }
+
 
 
 }

@@ -315,7 +315,8 @@ public class HBaseWriter implements Runnable
         }
     }
 
-    private HTable connectHTable()
+    @VisibleForTesting
+    protected HTable connectHTable()
         throws IOException
     {
         HTable hTable = table.get();

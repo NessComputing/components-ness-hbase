@@ -152,21 +152,14 @@ public class HBaseWriter implements Runnable
     synchronized void start()
     {
         if (hbaseWriterConfig.isEnabled()) {
-            try {
             Preconditions.checkState(writerThread.get() == null, "already started, boldly refusing to start twice!");
             Preconditions.checkState(table.get() == null, "Already have a htable object, something went very wrong!");
 
             LOG.info("Starting HBase Writer for HBase table %s.", tableName);
 
-            connectHTable();
-
             final Thread thread = new Thread(this, String.format("hbase-%s-writer", tableName));
             writerThread.set(thread);
             thread.start();
-            }
-            catch (IOException ioe) {
-                LOG.warnDebug(ioe, "Could not start HBase writer for %s", tableName);
-            }
         }
     }
 

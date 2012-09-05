@@ -15,6 +15,8 @@
  */
 package com.nesscomputing.hbase;
 
+import java.io.File;
+
 import org.skife.config.Config;
 import org.skife.config.Default;
 import org.skife.config.DefaultNull;
@@ -98,6 +100,26 @@ public abstract class HBaseWriterConfig
     public int getMaxBackoffFactor()
     {
         return 6;
+    }
+
+    /**
+     * Enable / disable spilling to disk.
+     */
+    @Config({"ness.hbase.writer.${writername}.spilling.enabled","ness.hbase.writer.spilling.enabled"})
+    @Default("true")
+    public boolean isSpillingEnabled()
+    {
+        return true;
+    }
+
+    /**
+     * place to spill to.
+     */
+    @Config({"ness.hbase.writer.${writername}.spilling.directory","ness.hbase.writer.spilling.directory"})
+    @DefaultNull
+    public File getSpillingDirectory()
+    {
+        return null;
     }
 
     /**

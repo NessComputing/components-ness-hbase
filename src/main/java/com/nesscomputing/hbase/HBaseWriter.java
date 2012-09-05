@@ -405,73 +405,73 @@ public class HBaseWriter implements Runnable
         }
     }
 
-    @Managed
+    @Managed(description="number of objects enqueued.")
     public long getOpsEnqueued()
     {
         return opsEnqueued.get();
     }
 
-    @Managed
+    @Managed(description="number of objects spilled to disk when trying to enqueue.")
     public long getOpsEnqSpilled()
     {
         return opsEnqSpilled.get();
     }
 
-    @Managed
+    @Managed(description="number of objects spilled to disk after dequeueing.")
     public long getOpsDeqSpilled()
     {
         return opsDeqSpilled.get();
     }
 
-    @Managed
+    @Managed(description="number of objects lost because enqueueing failed with timeout.")
     public long getOpsEnqTimeout()
     {
         return opsEnqTimeout.get();
     }
 
-    @Managed
+    @Managed(description="number of objects lost because writer is in cooloff mode.")
     public long getOpsEnqCooloff()
     {
         return opsEnqCooloff.get();
     }
 
-    @Managed
+    @Managed(description="number of objects dequeued.")
     public long getOpsDequeued()
     {
         return opsDequeued.get();
     }
 
-    @Managed
+    @Managed(description="number of objects that could neither sent nor spilled.")
     public long getOpsLost()
     {
         return opsLost.get();
     }
 
-    @Managed
+    @Managed(description="number of objects successfully sent.")
     public long getOpsSent()
     {
         return opsSent.get();
     }
 
-    @Managed
+    @Managed(description="current length of the internal queue.")
     public int getQueueLength()
     {
         return writeQueue.size();
     }
 
-    @Managed
+    @Managed(description="longest queue burst dequeued in a single operation.")
     public int getLongestBurst()
     {
         return longestBurst.get();
     }
 
-    @Managed
+    @Managed(description="number of successful spills to disk.")
     public long getSpillsOk()
     {
         return spillsOk.get();
     }
 
-    @Managed
+    @Managed(description="number of failed spills to disk.")
     public long getSpillsFailed()
     {
         return spillsFailed.get();

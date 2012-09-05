@@ -123,13 +123,23 @@ public class HBaseWriter implements Runnable
 
         final File spillingDirectory = hbaseWriterConfig.getSpillingDirectory();
 
-        if (hbaseWriterConfig.isSpillingEnabled()
-            && spillingDirectory != null
-            && spillingDirectory.isDirectory()
-            && spillingDirectory.canWrite()
-            && spillingDirectory.canExecute()) {
-            this.spillingDirectory = spillingDirectory;
-            LOG.info("Spilling enabled for %s, folder is %s.", writerName, spillingDirectory.getAbsolutePath());
+        if (hbaseWriterConfig.isSpillingEnabled() && spillingDirectory != null) {
+
+            if (!spillingDirectory.exists() && !spillingDirectory.mkdirs()) {
+                LOG.error("Could not create directory '%s', spilling will probably not work!", spillingDirectory);
+            }
+
+            if (spillingDirectory.exists()
+              && spillingDirectory.isDirectory()
+              && spillingDirectory.canWrite()
+              && spillingDirectory.canExecute()) {
+                this.spillingDirectory = spillingDirectory;
+                LOG.info("Spilling enabled for %s, directory is '%s'.", writerName, spillingDirectory.getAbsolutePath());
+            }
+            else {
+                this.spillingDirectory = null;
+                LOG.info("Spilling disabled for %s, directory '%s' is not usable!", writerName, spillingDirectory);
+            }
         }
         else {
             this.spillingDirectory = null;

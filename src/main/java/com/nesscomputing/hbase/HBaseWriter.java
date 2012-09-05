@@ -85,6 +85,8 @@ public class HBaseWriter implements Runnable
     private final AtomicLong opsLost = new AtomicLong(0L);
     private final AtomicInteger longestBurst = new AtomicInteger(0);
 
+    private int backoff = 1;
+
     private final String tableName;
 
     HBaseWriter(final HBaseWriterConfig hbaseWriterConfig,
@@ -107,10 +109,7 @@ public class HBaseWriter implements Runnable
 
             LOG.info("Starting HBase Writer for HBase table %s.", tableName);
 
-            final HTable hTable = new HTable(hadoopConfig, tableName);
-
-            hTable.setAutoFlush(true); // We do our own caching so no need to do it twice.
-            table.set(hTable);
+            connectHTable();
 
             final Thread thread = new Thread(this, String.format("hbase-%s-writer", tableName));
             writerThread.set(thread);
@@ -136,8 +135,7 @@ public class HBaseWriter implements Runnable
                 Thread.currentThread().interrupt();
             }
 
-            final HTable htable = table.getAndSet(null);
-            closeQuietly(htable);
+            disconnectHTable();
         } else {
             LOG.debug("Never started, ignoring stop()");
         }
@@ -205,27 +203,48 @@ public class HBaseWriter implements Runnable
     }
 
     protected void flushToHBase(final List<Callable<Put>> putOps)
+        throws InterruptedException
     {
         LOG.trace("Starting write of %d put ops...", putOps.size());
 
-        try {
-            final HTable htable = table.get();
-            if (htable != null) {
+        for(;;) {
+            try {
+                final HTable htable = connectHTable();
                 htable.put(Lists.transform(putOps, CALLABLE_FUNCTION));
                 opsSent.addAndGet(putOps.size());
                 LOG.trace("Wrote %d put ops to HBase table %s.", putOps.size(), tableName);
-            } else {
-                LOG.warn("HTable is null, probably shutting down!");
+                backoff = 1;
+                return;
+            }
+            catch (IOException e) {
+                if (backoff(e)) {
+                    break; // for(;;)
+                }
             }
         }
-        catch (IOException e) {
-            opsLost.addAndGet(putOps.size());
-            LOG.error(e, "Unable to send put ops to HBase!");
-        }
+
+        opsLost.addAndGet(putOps.size());
     }
 
-    private void closeQuietly(final HTable htable)
+    private boolean backoff(final Throwable t) throws InterruptedException
     {
+        final long backoffTime = hbaseWriterConfig.getBackoffDelay().getMillis() * backoff;
+        LOG.warnDebug(t, "Could not send data to HBase, sleeping for %d ms...", backoffTime);
+
+        Thread.sleep(backoffTime);
+        final boolean maxBackoff = (backoff == (1 << hbaseWriterConfig.getMaxBackoffFactor()));
+        if (!maxBackoff) {
+            backoff <<= 1;
+        }
+
+        disconnectHTable();
+        return maxBackoff;
+    }
+
+    private void disconnectHTable()
+    {
+        final HTable htable = table.getAndSet(null);
+
         if (htable == null) {
             return;
         }
@@ -236,6 +255,18 @@ public class HBaseWriter implements Runnable
         catch (IOException ioe) {
             LOG.warnDebug(ioe, "While closing HTable");
         }
+    }
+
+    private HTable connectHTable()
+        throws IOException
+    {
+        HTable hTable = table.get();
+        if (hTable == null) {
+            hTable = new HTable(hadoopConfig, tableName);
+            hTable.setAutoFlush(true); // We do our own caching so no need to do it twice.
+            table.set(hTable);
+        }
+        return hTable;
     }
 
     @Override
@@ -258,6 +289,7 @@ public class HBaseWriter implements Runnable
 
     @VisibleForTesting
     void runLoop()
+        throws InterruptedException
     {
         final Callable<Put> put = writeQueue.poll();
         if (put != null) {

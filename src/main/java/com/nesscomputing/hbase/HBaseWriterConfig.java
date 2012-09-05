@@ -81,6 +81,26 @@ public abstract class HBaseWriterConfig
     }
 
     /**
+     * If a problem occurs, the backoff delay calculated with this delay.
+     */
+    @Config({"ness.hbase.writer.${writername}.backoff-delay", "ness.hbase.writer.backoff-delay"})
+    @Default("3s")
+    public TimeSpan getBackoffDelay()
+    {
+        return new TimeSpan("3s");
+    }
+
+    /**
+     * maximum shift factor (2^1 .. 2^x) for the exponential backoff.
+     */
+    @Config({"ness.hbase.writer.${writername}.max-backoff-factor", "ness.hbase.writer.max-backoff-factor"})
+    @Default("6")
+    public int getMaxBackoffFactor()
+    {
+        return 6;
+    }
+
+    /**
      * Name of the HBase table to write into.
      */
     @Config({"ness.hbase.writer.${writername}.tablename","ness.hbase.writer.tablename"})

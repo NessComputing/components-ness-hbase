@@ -310,12 +310,14 @@ public class HBaseWriter implements Runnable
             return;
         }
 
+        LOG.info("Disconnecting from HBase for Table '%s'", tableName);
         try {
             htable.close();
         }
         catch (IOException ioe) {
             LOG.warnDebug(ioe, "While closing HTable");
         }
+        LOG.info("Disconnect complete!");
     }
 
     @VisibleForTesting
@@ -324,9 +326,11 @@ public class HBaseWriter implements Runnable
     {
         HTable hTable = table.get();
         if (hTable == null) {
+            LOG.info("Connecting to HBase for Table '%s'", tableName);
             hTable = new HTable(hadoopConfig, tableName);
             hTable.setAutoFlush(true); // We do our own caching so no need to do it twice.
             table.set(hTable);
+            LOG.info("Connection complete!");
         }
         return hTable;
     }

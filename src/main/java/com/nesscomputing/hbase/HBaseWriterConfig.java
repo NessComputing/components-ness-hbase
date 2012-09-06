@@ -15,6 +15,8 @@
  */
 package com.nesscomputing.hbase;
 
+import java.io.File;
+
 import org.skife.config.Config;
 import org.skife.config.Default;
 import org.skife.config.DefaultNull;
@@ -78,6 +80,46 @@ public abstract class HBaseWriterConfig
     public TimeSpan getFailureCooloffTime()
     {
         return new TimeSpan("1s");
+    }
+
+    /**
+     * If a problem occurs, the backoff delay calculated with this delay.
+     */
+    @Config({"ness.hbase.writer.${writername}.backoff-delay", "ness.hbase.writer.backoff-delay"})
+    @Default("3s")
+    public TimeSpan getBackoffDelay()
+    {
+        return new TimeSpan("3s");
+    }
+
+    /**
+     * maximum shift factor (2^1 .. 2^x) for the exponential backoff.
+     */
+    @Config({"ness.hbase.writer.${writername}.max-backoff-factor", "ness.hbase.writer.max-backoff-factor"})
+    @Default("6")
+    public int getMaxBackoffFactor()
+    {
+        return 6;
+    }
+
+    /**
+     * Enable / disable spilling to disk.
+     */
+    @Config({"ness.hbase.writer.${writername}.spilling.enabled","ness.hbase.writer.spilling.enabled"})
+    @Default("true")
+    public boolean isSpillingEnabled()
+    {
+        return true;
+    }
+
+    /**
+     * place to spill to.
+     */
+    @Config({"ness.hbase.writer.${writername}.spilling.directory","ness.hbase.writer.spilling.directory"})
+    @DefaultNull
+    public File getSpillingDirectory()
+    {
+        return null;
     }
 
     /**

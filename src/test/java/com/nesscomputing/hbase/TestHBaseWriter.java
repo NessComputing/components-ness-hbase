@@ -18,6 +18,8 @@ package com.nesscomputing.hbase;
 import java.util.List;
 import java.util.concurrent.Callable;
 
+import com.google.common.collect.Lists;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.Put;
 import org.easymock.EasyMock;
@@ -26,8 +28,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.skife.config.TimeSpan;
-
-import com.google.common.collect.Lists;
 
 public class TestHBaseWriter
 {
@@ -77,7 +77,7 @@ public class TestHBaseWriter
     {
         final List<Callable<Put>> flushList = Lists.newArrayList();
 
-        final HBaseWriter dummyWriter = new HBaseWriter(HBASE_WRITER_CONFIG, conf) {
+        final HBaseWriter dummyWriter = new HBaseWriter("test", HBASE_WRITER_CONFIG, conf) {
             @Override
             protected void flushToHBase(final List<Callable<Put>> dbObjects)
             {
@@ -119,7 +119,7 @@ public class TestHBaseWriter
     {
         final List<Callable<Put>> flushList = Lists.newArrayList();
 
-        final HBaseWriter dummyWriter = new HBaseWriter(HBASE_WRITER_CONFIG, conf) {
+        final HBaseWriter dummyWriter = new HBaseWriter("test", HBASE_WRITER_CONFIG, conf) {
             @Override
             protected void flushToHBase(final List<Callable<Put>> dbObjects)
             {

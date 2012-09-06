@@ -17,10 +17,6 @@ package com.nesscomputing.hbase;
 
 import static java.lang.String.format;
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.conf.Configuration;
-import org.weakref.jmx.guice.MBeanModule;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.AbstractModule;
@@ -31,6 +27,11 @@ import com.google.inject.Provider;
 import com.google.inject.Scopes;
 import com.google.inject.name.Named;
 import com.google.inject.name.Names;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.weakref.jmx.guice.MBeanModule;
+
 import com.nesscomputing.config.ConfigProvider;
 import com.nesscomputing.lifecycle.LifecycleStage;
 import com.nesscomputing.lifecycle.guice.AbstractLifecycleProvider;
@@ -100,7 +101,7 @@ public class HBaseWriterModule extends AbstractModule
         public HBaseWriter internalGet()
         {
             Preconditions.checkState(writerConfig != null, "no writerConfig was injected!");
-            return new HBaseWriter(writerConfig, hadoopConfig);
+            return new HBaseWriter(named.value(), writerConfig, hadoopConfig);
         }
     }
 }

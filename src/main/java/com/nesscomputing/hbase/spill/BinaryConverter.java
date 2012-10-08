@@ -33,6 +33,8 @@ import org.apache.hadoop.hbase.client.Put;
 
 import com.nesscomputing.logging.Log;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 final class BinaryConverter
 {
     private static final Log LOG = Log.findLog();
@@ -117,7 +119,8 @@ final class BinaryConverter
     static final class PutToBinary implements Function<Put, byte []>
     {
         @Override
-        public byte [] apply(@Nullable Put input)
+        @SuppressFBWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
+        public byte [] apply(Put input)
         {
             Preconditions.checkNotNull(input, "input must not be null!");
 

@@ -76,7 +76,9 @@ public class SpilledFile
 
         try {
             is = new BufferedInputStream(new FileInputStream(file));
-            is.skip(4 + 4 + 8); // int, int, long
+
+            final int skippedBytes = 4 + 4 + 8; // int, int, long
+            Preconditions.checkState( skippedBytes == is.skip(skippedBytes), "skipped byte mismatch (you are in trouble...)");
 
             Put put = null;
 
@@ -84,7 +86,9 @@ public class SpilledFile
                 builder.add(put);
             }
 
-            return builder.build();
+            final List<Put> result = builder.build();
+            Preconditions.checkState(result.size() == elements, "The preamble reported %d elements, but %d were found!", elements, result.size());
+            return result;
         }
         finally {
             Closeables.closeQuietly(is);

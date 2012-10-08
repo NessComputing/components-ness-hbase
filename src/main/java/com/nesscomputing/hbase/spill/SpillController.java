@@ -267,11 +267,11 @@ public class SpillController
     }
 
 
-    public final class ValidSpillfileFilter implements FileFilter
+    public static final class ValidSpillfileFilter implements FileFilter
     {
         private final long minAge;
 
-        public ValidSpillfileFilter(final long minAge)
+        ValidSpillfileFilter(final long minAge)
         {
             this.minAge = minAge;
         }

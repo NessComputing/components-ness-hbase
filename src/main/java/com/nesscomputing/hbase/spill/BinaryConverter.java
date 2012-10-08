@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.nesscomputing.hbase;
+package com.nesscomputing.hbase.spill;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -33,9 +33,14 @@ import org.apache.hadoop.hbase.client.Put;
 
 import com.nesscomputing.logging.Log;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 final class BinaryConverter
 {
     private static final Log LOG = Log.findLog();
+
+    public static final Function<Put, byte []> PUT_WRITE_FUNCTION = new PutToBinary();
+    public static final Function<InputStream, Put> PUT_READ_FUNCTION = new StreamToPut();
 
     private BinaryConverter()
     {
@@ -114,20 +119,27 @@ final class BinaryConverter
     static final class PutToBinary implements Function<Put, byte []>
     {
         @Override
-        public byte [] apply(@Nullable Put input)
+        @SuppressFBWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
+        public byte [] apply(Put input)
         {
-            if (input == null) {
-                return new byte [0];
-            }
+            Preconditions.checkNotNull(input, "input must not be null!");
+
             try {
-                final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                writeInt(baos, 1); // Version 1 of the format
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 writeByteArray(baos, input.getRow()); // Write the row first
                 for (List<KeyValue> entry : input.getFamilyMap().values()) {
                     for (KeyValue keyValue : entry) {
                         writeByteArray(baos, keyValue.getBuffer()); // KeyValue as a serialized blob
                     }
                 }
+
+                final byte [] putBytes = baos.toByteArray();
+
+                baos = new ByteArrayOutputStream();
+                writeInt(baos, 2); // Version 2 of the format
+                // Version 2 has a size field to tell the reader how many bytes
+                // will constitute the put to follow.
+                writeByteArray(baos, putBytes);
                 return baos.toByteArray();
             }
             catch (IOException ioe) {
@@ -140,30 +152,65 @@ final class BinaryConverter
     /**
      * Reads binary representation of a put and reassembles it.
      */
-    static final class BinaryToPut implements Function<byte [], Put>
+    static final class StreamToPut implements Function<InputStream, Put>
     {
         @Override
-        public Put apply(@Nullable byte [] input)
+        public Put apply(@Nullable InputStream stream)
         {
-            if (input == null) {
+            if (stream == null || ! stream.markSupported()) {
                 return null;
             }
             try {
-                final ByteArrayInputStream bais = new ByteArrayInputStream(input);
-                final Integer version = readInt(bais);
-                Preconditions.checkState(version != null && version == 1, "Only version 1 data is supported!");
-                final byte [] key = readBytes(bais);
-                Preconditions.checkState(key != null, "Could not read key from input stream!");
-                final Put put = new Put(key);
-
-                byte [] kvBytes = null;
-                while((kvBytes = readBytes(bais)) != null) {
-                    put.add(new KeyValue(kvBytes));
+                final Integer version = readInt(stream);
+                if (version == null) {
+                    return null;
                 }
-                return put;
+
+                if (version == 1) {
+                    // Version 1 had no total size field, so the reader
+                    // must guess whether a field is part of the current put
+                    // or starts a new put. The good news is that it generally
+                    // guesses right.
+
+                    final byte [] key = readBytes(stream);
+                    Preconditions.checkState(key != null, "Could not read key from input stream!");
+                    final Put put = new Put(key);
+
+                    for (;;) {
+                        // Hack to find the end of an element and start with the next.
+                        stream.mark(4);
+                        final Integer length = readInt(stream);
+                        // There are no fields in the stream with length == 1, so
+                        // this guess is usually right
+                        if (length == null || length == 1) {
+                            stream.reset();
+                            return put;
+                        }
+                        final byte [] kvBytes = readBuffer(stream, length);
+                        put.add(new KeyValue(kvBytes));
+                    }
+                }
+                else if (version == 2) {
+                    // Version 2 has a size field which makes the readers' life easy
+                    final byte [] putBytes = readBytes(stream);
+                    final ByteArrayInputStream bais = new ByteArrayInputStream(putBytes);
+
+                    final byte [] key = readBytes(bais);
+                    Preconditions.checkState(key != null, "Could not read key from input stream!");
+                    final Put put = new Put(key);
+                    byte [] kvBytes;
+                    while ((kvBytes = BinaryConverter.readBytes(bais)) != null) {
+                        put.add(new KeyValue(kvBytes));
+                    }
+                    return put;
+                }
+                else {
+                    LOG.warn("Encountered a put v%d which is unknown!", version);
+                    return null;
+                }
             }
             catch (IOException ioe) {
-                LOG.error(ioe, "While reading from a byte array stream!");
+                LOG.error(ioe, "While reading put from input stream!");
                 return null;
             }
         }

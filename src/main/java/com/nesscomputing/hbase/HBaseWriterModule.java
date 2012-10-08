@@ -33,6 +33,8 @@ import org.apache.hadoop.conf.Configuration;
 import org.weakref.jmx.guice.MBeanModule;
 
 import com.nesscomputing.config.ConfigProvider;
+import com.nesscomputing.hbase.spill.SpillController;
+import com.nesscomputing.hbase.spill.SpillReader;
 import com.nesscomputing.lifecycle.LifecycleStage;
 import com.nesscomputing.lifecycle.guice.AbstractLifecycleProvider;
 import com.nesscomputing.lifecycle.guice.LifecycleAction;
@@ -56,11 +58,14 @@ public class HBaseWriterModule extends AbstractModule
         final Named named = Names.named(writerName);
         bind(HBaseWriterConfig.class).annotatedWith(named).toProvider(ConfigProvider.of(HBaseWriterConfig.class, ImmutableMap.of("writername", writerName))).in(Scopes.SINGLETON);
         bind(HBaseWriter.class).annotatedWith(named).toProvider(new HBaseWriterProvider(named)).asEagerSingleton();
+        bind(SpillController.class).annotatedWith(named).toProvider(new SpillControllerProvider(named)).in(Scopes.SINGLETON);
+        bind(SpillReader.class).annotatedWith(named).toProvider(new SpillReaderProvider(named)).asEagerSingleton();
 
         install(new MBeanModule() {
             @Override
             public void configureMBeans() {
                 export(HBaseWriter.class).annotatedWith(named).as(format("ness.hbase.writer:name=%s", writerName));
+                export(SpillController.class).annotatedWith(named).as(format("ness.hbase.spill:name=%s", writerName));
             }
         });
     }
@@ -70,6 +75,7 @@ public class HBaseWriterModule extends AbstractModule
         private final Named named;
         private HBaseWriterConfig writerConfig = null;
         private Configuration hadoopConfig = null;
+        private SpillController spillController = null;
 
         private HBaseWriterProvider(final Named named)
         {
@@ -93,15 +99,87 @@ public class HBaseWriterModule extends AbstractModule
         @Inject
         void setInjector(final Injector injector)
         {
-            this.writerConfig = injector.getInstance(Key.get(HBaseWriterConfig.class, named));
             this.hadoopConfig = injector.getInstance(Configuration.class);
+
+            this.writerConfig = injector.getInstance(Key.get(HBaseWriterConfig.class, named));
+            this.spillController = injector.getInstance(Key.get(SpillController.class, named));
+
         }
 
         @Override
         public HBaseWriter internalGet()
         {
             Preconditions.checkState(writerConfig != null, "no writerConfig was injected!");
-            return new HBaseWriter(named.value(), writerConfig, hadoopConfig);
+            return new HBaseWriter(writerConfig, hadoopConfig, spillController);
         }
     }
+
+    public static class SpillControllerProvider implements Provider<SpillController>
+    {
+        private final Named named;
+        private HBaseWriterConfig writerConfig = null;
+
+        public SpillControllerProvider(final Named named)
+        {
+            this.named = named;
+        }
+
+        @Inject
+        void setInjector(final Injector injector)
+        {
+            this.writerConfig = injector.getInstance(Key.get(HBaseWriterConfig.class, named));
+        }
+
+        @Override
+        public SpillController get()
+        {
+            return new SpillController(named.value(), writerConfig);
+        }
+    }
+
+    public static class SpillReaderProvider extends AbstractLifecycleProvider<SpillReader> implements Provider<SpillReader>
+    {
+        private final Named named;
+        private HBaseWriterConfig writerConfig = null;
+        private Configuration hadoopConfig = null;
+        private SpillController spillController = null;
+
+        private SpillReaderProvider(final Named named)
+        {
+            this.named = named;
+
+            addAction(LifecycleStage.START_STAGE, new LifecycleAction<SpillReader>() {
+                    @Override
+                    public void performAction(final SpillReader spillReader) {
+                        spillReader.start();
+                    }
+                });
+
+            addAction(LifecycleStage.STOP_STAGE, new LifecycleAction<SpillReader>() {
+                    @Override
+                    public void performAction(final SpillReader spillReader) {
+                        spillReader.stop();
+                    }
+                });
+        }
+
+        @Inject
+        void setInjector(final Injector injector)
+        {
+            this.hadoopConfig = injector.getInstance(Configuration.class);
+
+            this.writerConfig = injector.getInstance(Key.get(HBaseWriterConfig.class, named));
+            this.spillController = injector.getInstance(Key.get(SpillController.class, named));
+
+        }
+
+        @Override
+        public SpillReader internalGet()
+        {
+            Preconditions.checkState(writerConfig != null, "no writerConfig was injected!");
+            return new SpillReader(writerConfig, hadoopConfig, spillController);
+        }
+    }
+
+
 }

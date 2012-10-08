@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.nesscomputing.hbase;
+package com.nesscomputing.hbase.spill;
 
+import java.io.ByteArrayInputStream;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,7 +38,7 @@ public class TestBinaryConverter
 
         final byte [] data = new BinaryConverter.PutToBinary().apply(put);
 
-        final Put put2 = new BinaryConverter.BinaryToPut().apply(data);
+        final Put put2 = new BinaryConverter.StreamToPut().apply(new ByteArrayInputStream(data));
 
         Assert.assertNotNull(put2);
         Assert.assertArrayEquals(put.getRow(), put2.getRow());

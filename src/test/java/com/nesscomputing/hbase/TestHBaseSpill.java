@@ -31,6 +31,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.skife.config.TimeSpan;
 
+import com.nesscomputing.hbase.spill.SpillController;
 import com.nesscomputing.testing.lessio.AllowExternalProcess;
 import com.nesscomputing.testing.lessio.AllowLocalFileAccess;
 
@@ -94,7 +95,8 @@ public class TestHBaseSpill
     @Test
     public void testSpillOnEnqueue()
     {
-        final HBaseWriter dummyWriter = new HBaseWriter("test", hbaseWriterConfig, conf);
+        final SpillController spillController = new SpillController("test", hbaseWriterConfig);
+        final HBaseWriter dummyWriter = new HBaseWriter(hbaseWriterConfig, conf, spillController);
 
         final Put data = new Put("row".getBytes(Charsets.UTF_8));
         data.add("family".getBytes(Charsets.UTF_8), "qualifier".getBytes(Charsets.UTF_8), "Hello, World".getBytes(Charsets.UTF_8));
@@ -102,20 +104,21 @@ public class TestHBaseSpill
 
         for (int i = 0 ; i < queueLength; i++) {
             dummyWriter.write(data);
-            Assert.assertEquals(0L, dummyWriter.getSpillsOk());
-            Assert.assertEquals(0L, dummyWriter.getSpillsFailed());
+            Assert.assertEquals(0L, spillController.getSpillsOk());
+            Assert.assertEquals(0L, spillController.getSpillsFailed());
             Assert.assertEquals(i + 1, dummyWriter.getQueueLength());
         }
         dummyWriter.write(data);
-        Assert.assertEquals(1L, dummyWriter.getSpillsOk());
-        Assert.assertEquals(queueLength + 1, dummyWriter.getOpsEnqSpilled());
+        Assert.assertEquals(1L, spillController.getSpillsOk());
+        Assert.assertEquals(queueLength + 1, spillController.getOpsEnqSpilled());
 
     }
 
     @Test
     public void testSpillOnDequeue() throws Exception
     {
-        final HBaseWriter dummyWriter = new HBaseWriter("test", hbaseWriterConfig, conf) {
+        final SpillController spillController = new SpillController("test", hbaseWriterConfig);
+        final HBaseWriter dummyWriter = new HBaseWriter(hbaseWriterConfig, conf, spillController) {
             @Override
             protected HTable connectHTable() throws IOException
             {
@@ -130,17 +133,17 @@ public class TestHBaseSpill
 
         for (int i = 0 ; i < queueLength; i++) {
             dummyWriter.write(data);
-            Assert.assertEquals(0L, dummyWriter.getSpillsOk());
-            Assert.assertEquals(0L, dummyWriter.getSpillsFailed());
+            Assert.assertEquals(0L, spillController.getSpillsOk());
+            Assert.assertEquals(0L, spillController.getSpillsFailed());
             Assert.assertEquals(i + 1, dummyWriter.getQueueLength());
         }
 
-        Assert.assertEquals(0, dummyWriter.getOpsDeqSpilled());
+        Assert.assertEquals(0, spillController.getOpsDeqSpilled());
 
         dummyWriter.runLoop();
 
-        Assert.assertEquals(queueLength, dummyWriter.getOpsDeqSpilled());
-        Assert.assertEquals(1L, dummyWriter.getSpillsOk());
+        Assert.assertEquals(queueLength, spillController.getOpsDeqSpilled());
+        Assert.assertEquals(1L, spillController.getSpillsOk());
     }
 
 

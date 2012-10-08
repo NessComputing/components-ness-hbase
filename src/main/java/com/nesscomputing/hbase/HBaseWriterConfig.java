@@ -123,6 +123,26 @@ public abstract class HBaseWriterConfig
     }
 
     /**
+     * Cycle time for the spill reader.
+     */
+    @Config({"ness.hbase.writer.${writername}.spill-reader-cycle","ness.hbase.writer.spill-reader-cycle"})
+    @Default("2h")
+    public TimeSpan getSpillCycleTime()
+    {
+        return new TimeSpan("2h");
+    }
+
+    /**
+     * Minimum age for a spill file to be considered for re-reading.
+     */
+    @Config({"ness.hbase.writer.${writername}.spill-file-min-age","ness.hbase.writer.spill-file-min-age"})
+    @Default("8h")
+    public TimeSpan getSpillFileMinAge()
+    {
+        return new TimeSpan("8h");
+    }
+
+    /**
      * Name of the HBase table to write into.
      */
     @Config({"ness.hbase.writer.${writername}.tablename","ness.hbase.writer.tablename"})

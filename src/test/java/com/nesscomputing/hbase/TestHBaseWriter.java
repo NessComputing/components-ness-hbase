@@ -29,6 +29,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.skife.config.TimeSpan;
 
+import com.nesscomputing.hbase.spill.SpillController;
+
 public class TestHBaseWriter
 {
     private static final HBaseWriterConfig HBASE_WRITER_CONFIG = new HBaseWriterConfig() {
@@ -77,7 +79,8 @@ public class TestHBaseWriter
     {
         final List<Callable<Put>> flushList = Lists.newArrayList();
 
-        final HBaseWriter dummyWriter = new HBaseWriter("test", HBASE_WRITER_CONFIG, conf) {
+        final SpillController spillController = new SpillController("test", HBASE_WRITER_CONFIG);
+        final HBaseWriter dummyWriter = new HBaseWriter(HBASE_WRITER_CONFIG, conf, spillController) {
             @Override
             protected void flushToHBase(final List<Callable<Put>> dbObjects)
             {
@@ -119,7 +122,8 @@ public class TestHBaseWriter
     {
         final List<Callable<Put>> flushList = Lists.newArrayList();
 
-        final HBaseWriter dummyWriter = new HBaseWriter("test", HBASE_WRITER_CONFIG, conf) {
+        final SpillController spillController = new SpillController("test", HBASE_WRITER_CONFIG);
+        final HBaseWriter dummyWriter = new HBaseWriter(HBASE_WRITER_CONFIG, conf, spillController) {
             @Override
             protected void flushToHBase(final List<Callable<Put>> dbObjects)
             {

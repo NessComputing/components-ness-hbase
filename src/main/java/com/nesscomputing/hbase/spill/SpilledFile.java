@@ -16,6 +16,9 @@ import com.google.common.io.Closeables;
 import org.apache.hadoop.hbase.client.Put;
 
 import com.nesscomputing.logging.Log;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.ToStringBuilder;
 
 public class SpilledFile
 {
@@ -94,4 +97,38 @@ public class SpilledFile
             Closeables.closeQuietly(is);
         }
     }
+
+    @Override
+    public boolean equals(final Object other)
+    {
+        if (!(other instanceof SpilledFile))
+            return false;
+        SpilledFile castOther = (SpilledFile) other;
+        return new EqualsBuilder().append(file, castOther.file).append(version, castOther.version).append(elements, castOther.elements).append(timestamp, castOther.timestamp).isEquals();
+    }
+
+    private transient int hashCode;
+
+    @Override
+    public int hashCode()
+    {
+        if (hashCode == 0) {
+            hashCode = new HashCodeBuilder().append(file).append(version).append(elements).append(timestamp).toHashCode();
+        }
+        return hashCode;
+    }
+
+    private transient String toString;
+
+    @Override
+    public String toString()
+    {
+        if (toString == null) {
+            toString = new ToStringBuilder(this).append("file", file).append("version", version).append("elements", elements).append("timestamp", timestamp).toString();
+        }
+        return toString;
+    }
+
+
+
 }

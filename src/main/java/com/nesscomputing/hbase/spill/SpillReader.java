@@ -113,7 +113,7 @@ public class SpillReader extends AbstractHBaseSupport implements Runnable
                         final List<Put> spilledElements = spillFile.load();
 
                         htable.put(spilledElements);
-                        LOG.trace("Wrote %d spilled ops to HBase table %s.", spilledElements.size(), tableName);
+                        LOG.info("Wrote %d spilled ops from spill file %s to HBase table %s.", spilledElements.size(), spillFile.getName(), tableName);
 
                         spillController.fileOk(spillFile);
                     }

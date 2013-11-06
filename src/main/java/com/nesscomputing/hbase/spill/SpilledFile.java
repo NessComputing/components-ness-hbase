@@ -28,12 +28,12 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closeables;
 
-import org.apache.hadoop.hbase.client.Put;
-
 import com.nesscomputing.logging.Log;
-import org.apache.commons.lang3.builder.HashCodeBuilder;
+
 import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.hadoop.hbase.client.Put;
 
 public class SpilledFile
 {
@@ -96,7 +96,7 @@ public class SpilledFile
             is = new BufferedInputStream(new FileInputStream(file));
 
             final int skippedBytes = 4 + 4 + 8; // int, int, long
-            Preconditions.checkState( skippedBytes == is.skip(skippedBytes), "skipped byte mismatch (you are in trouble...)");
+            Preconditions.checkState(skippedBytes == is.skip(skippedBytes), "skipped byte mismatch (you are in trouble...)");
 
             Put put = null;
 
@@ -116,9 +116,10 @@ public class SpilledFile
     @Override
     public boolean equals(final Object other)
     {
-        if (!(other instanceof SpilledFile))
+        if (!(other instanceof SpilledFile)) {
             return false;
-        SpilledFile castOther = (SpilledFile) other;
+        }
+        final SpilledFile castOther = (SpilledFile) other;
         return new EqualsBuilder().append(file, castOther.file).append(version, castOther.version).append(elements, castOther.elements).append(timestamp, castOther.timestamp).isEquals();
     }
 
@@ -143,7 +144,5 @@ public class SpilledFile
         }
         return toString;
     }
-
-
 
 }

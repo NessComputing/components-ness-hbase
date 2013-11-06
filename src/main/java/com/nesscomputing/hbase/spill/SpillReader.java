@@ -118,7 +118,7 @@ public class SpillReader extends AbstractHBaseSupport implements Runnable
     {
         final List<SpilledFile> spillFiles = spillController.findSpilledFiles();
 
-        if (spillFiles.size() > 0) {
+        if (!spillFiles.isEmpty()) {
             try {
 
                 for (SpilledFile spillFile : spillFiles) {
